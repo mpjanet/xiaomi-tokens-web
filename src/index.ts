@@ -92,15 +92,34 @@ app.post('/api/proxy', async (c) => {
   }
 });
 
-// Serve the HTML interface
-app.get('/', (c) => {
-  const lang = c.req.query('lang') || 'en';
-  return c.html(getHtmlContent(lang));
+// Serve the standalone HTML file
+app.get('/', async (c) => {
+  try {
+    // Try to read the standalone HTML file
+    let htmlContent: string;
+    
+    // Check if we're in Bun environment
+    if (typeof Bun !== 'undefined') {
+      htmlContent = await Bun.file('./xiaomi-token-extractor.html').text();
+    } else {
+      // Node.js environment
+      const fs = await import('fs/promises');
+      const path = await import('path');
+      const filePath = path.resolve('./xiaomi-token-extractor.html');
+      htmlContent = await fs.readFile(filePath, 'utf-8');
+    }
+    
+    return c.html(htmlContent);
+  } catch (error) {
+    // Fallback to original template system if standalone file doesn't exist
+    const lang = c.req.query('lang') || 'en';
+    return c.html(getHtmlContent(lang));
+  }
 });
 
-// Language-specific routes
+// Language-specific routes (now redirect to main page since it has built-in language switching)
 app.get('/zh', (c) => {
-  return c.html(getHtmlContent('zh'));
+  return c.redirect('/');
 });
 
 // Serve favicon
@@ -502,7 +521,27 @@ const translations: any = {
     regionTaiwan: '🇹🇼 Taiwan (tw) - Taiwan',
     regionSingapore: '🇸🇬 Singapore (sg) - Southeast Asia',
     regionIndia: '🇮🇳 India (in) - India',
-    regionInternational: '🌍 International (i2) - Other regions'
+    regionInternational: '🌍 International (i2) - Other regions',
+    // Additional translation keys for JavaScript
+    pleaseDropJsonFile: 'Please drop a JSON file',
+    sessionNotFound: 'Session not found. Please login again.',
+    verificationSuccessful2FA: '2FA verification successful!',
+    sessionExpiredLogin: 'Session expired, please login again',
+    foundDevicesCount: 'Found',
+    deviceCount: 'device(s)',
+    errorMessage: 'Error:',
+    loginFailed: 'Login failed:',
+    verificationFailed: 'Verification failed:',
+    foundDevicesInRegion: 'Found',
+    inRegion: 'device(s) in',
+    regionUpper: 'region!',
+    noDevicesAnyRegion: 'No devices found in any region',
+    loadingDevicesFrom: 'Loading devices from',
+    server: 'server...',
+    showingDevicesFrom: 'Showing',
+    devicesSuffix: 'device(s) from',
+    serverText: 'server',
+    errorLoadingFrom: 'Error loading from'
   },
   zh: {
     title: '小米云令牌提取器',
@@ -580,7 +619,7 @@ const translations: any = {
     pythonLink: '原始Python版本',
     model: '型号',
     did: 'DID',
-    token: '令牌',
+    token: 'Token',
     ip: 'IP',
     mac: 'MAC',
     bleKey: 'BLE密钥',
@@ -609,7 +648,27 @@ const translations: any = {
     regionTaiwan: '🇹🇼 台湾 (tw) - 台湾地区',
     regionSingapore: '🇸🇬 新加坡 (sg) - 东南亚',
     regionIndia: '🇮🇳 印度 (in) - 印度',
-    regionInternational: '🌍 国际 (i2) - 其他地区'
+    regionInternational: '🌍 国际 (i2) - 其他地区',
+    // Additional translation keys for JavaScript
+    pleaseDropJsonFile: '请拖放一个JSON文件',
+    sessionNotFound: '未找到会话。请重新登录。',
+    verificationSuccessful2FA: '两步验证成功！',
+    sessionExpiredLogin: '会话已过期，请重新登录',
+    foundDevicesCount: '找到',
+    deviceCount: '个设备',
+    errorMessage: '错误：',
+    loginFailed: '登录失败：',
+    verificationFailed: '验证失败：',
+    foundDevicesInRegion: '在',
+    inRegion: '区域找到',
+    regionUpper: '个设备！',
+    noDevicesAnyRegion: '在任何区域都未找到设备',
+    loadingDevicesFrom: '正在从',
+    server: '服务器加载设备...',
+    showingDevicesFrom: '显示来自',
+    devicesSuffix: '个设备',
+    serverText: '服务器',
+    errorLoadingFrom: '从以下位置加载时出错'
   }
 };
 
@@ -1821,20 +1880,20 @@ function getHtmlContent(lang: string = 'en'): string {
             <div class="card-header" style="margin-bottom: 0; justify-content: space-between; align-items: center;">
                 <div style="display: flex; align-items: center;">
                     <div class="card-icon">📱</div>
-                    <h2 style="margin-bottom: 0;">Devices</h2>
+                    <h2 style="margin-bottom: 0;">${t.devices}</h2>
                 </div>
                 <div style="display: flex; align-items: center; gap: 0.5rem;">
                     <select id="serverSelector" style="padding: 0.5rem 1rem; padding-right: 2.5rem; font-size: 0.875rem; border: 1px solid var(--border); border-radius: var(--radius); background-color: var(--bg-secondary); color: var(--text); height: 36px; -webkit-appearance: none; appearance: none; background-image: url(&quot;data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23888' d='M10.293 3.293L6 7.586 1.707 3.293A1 1 0 00.293 4.707l5 5a1 1 0 001.414 0l5-5a1 1 0 10-1.414-1.414z'/%3E%3C/svg%3E&quot;); background-repeat: no-repeat; background-position: right 0.5rem center;" onchange="loadDevices(false)" title="Select the server region where your devices are registered">
-                        <option value="cn">🇨🇳 China (cn) - Mainland China</option>
-                        <option value="de">🇩🇪 Germany (de) - Europe</option>
-                        <option value="us">🇺🇸 United States (us) - Americas</option>
-                        <option value="ru">🇷🇺 Russia (ru) - Russia/CIS</option>
-                        <option value="tw">🇹🇼 Taiwan (tw) - Taiwan</option>
-                        <option value="sg">🇸🇬 Singapore (sg) - Southeast Asia</option>
-                        <option value="in">🇮🇳 India (in) - India</option>
-                        <option value="i2">🌍 International (i2) - Other regions</option>
+                        <option value="cn">${t.regionChina}</option>
+                        <option value="de">${t.regionGermany}</option>
+                        <option value="us">${t.regionUS}</option>
+                        <option value="ru">${t.regionRussia}</option>
+                        <option value="tw">${t.regionTaiwan}</option>
+                        <option value="sg">${t.regionSingapore}</option>
+                        <option value="in">${t.regionIndia}</option>
+                        <option value="i2">${t.regionInternational}</option>
                     </select>
-                    <button id="refreshDevicesBtn" class="button-secondary" style="padding: 0.5rem 1rem; font-size: 0.875rem; white-space: nowrap; height: 36px;" onclick="loadDevices(false)">🔄 Refresh</button>
+                    <button id="refreshDevicesBtn" class="button-secondary" style="padding: 0.5rem 1rem; font-size: 0.875rem; white-space: nowrap; height: 36px;" onclick="loadDevices(false)">🔄 ${t.refresh}</button>
                 </div>
             </div>
             <div id="currentServerInfo" style="margin: 1rem 0; padding: 0.75rem; background: var(--bg); border-radius: var(--radius); font-size: 0.875rem; color: var(--text-secondary); text-align: center;"></div>
@@ -1969,7 +2028,7 @@ function getHtmlContent(lang: string = 'en'): string {
             if (files.length > 0 && files[0].type === 'application/json') {
                 handleSessionFile(files[0]);
             } else {
-                showAlert('Please drop a JSON file', 'error');
+                showAlert(t('pleaseDropJsonFile'), 'error');
             }
         });
         
@@ -2087,13 +2146,13 @@ function getHtmlContent(lang: string = 'en'): string {
                     
                     showAlert(t('verificationRequired'), 'warning');
                 } else {
-                    showAlert(\`Login failed: \${result.error}\`, 'error');
+                    showAlert(t('loginFailed') + ' ' + result.error, 'error');
                 }
             } catch (error) {
-                showAlert(\`Error: \${error.message}\`, 'error');
+                showAlert(t('errorMessage') + ' ' + error.message, 'error');
             } finally {
                 loginBtn.disabled = false;
-                loginBtn.textContent = 'Login';
+                loginBtn.textContent = t('login');
             }
         });
         
@@ -2103,7 +2162,7 @@ function getHtmlContent(lang: string = 'en'): string {
             const code = document.getElementById('verifyCode').value;
             
             if (!tempClientState) {
-                showAlert('Session not found. Please login again.', 'error');
+                showAlert(t('sessionNotFound'), 'error');
                 document.getElementById('verifySection').classList.add('hidden');
                 document.getElementById('loginForm').classList.remove('hidden');
                 return;
@@ -2127,7 +2186,7 @@ function getHtmlContent(lang: string = 'en'): string {
                     sessionLoadedFromFile = false; // Not loaded from file
                     document.getElementById('verifySection').classList.add('hidden');
                     document.getElementById('loginForm').classList.remove('hidden');
-                    showAlert('2FA verification successful!', 'success');
+                    showAlert(t('verificationSuccessful2FA'), 'success');
                     updateSessionUI();
                     // Set server selector to match original selection
                     const serverSelector = document.getElementById('serverSelector');
@@ -2136,10 +2195,10 @@ function getHtmlContent(lang: string = 'en'): string {
                     }
                     await loadDevices();
                 } else {
-                    showAlert(\`Verification failed: \${result.error}\`, 'error');
+                    showAlert(t('verificationFailed') + ' ' + result.error, 'error');
                 }
             } catch (error) {
-                showAlert(\`Error: \${error.message}\`, 'error');
+                showAlert(t('errorMessage') + ' ' + error.message, 'error');
             }
         });
         
@@ -2169,7 +2228,7 @@ function getHtmlContent(lang: string = 'en'): string {
                 updateSessionUI();
                 
                 // Validate and load devices
-                showAlert('Session loaded, validating...', 'info');
+                showAlert(t('sessionLoaded'), 'info');
                 const response = await fetch('/api/validate-session', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
@@ -2178,7 +2237,7 @@ function getHtmlContent(lang: string = 'en'): string {
                 
                 const result = await response.json();
                 if (result.valid) {
-                    showAlert('Session is valid!', 'success');
+                    showAlert(t('sessionValid'), 'success');
                     // Set server selector to loaded session's server if available
                     const serverSelector = document.getElementById('serverSelector');
                     if (serverSelector && currentSession.server) {
@@ -2186,12 +2245,12 @@ function getHtmlContent(lang: string = 'en'): string {
                     }
                     await loadDevices();
                 } else {
-                    showAlert('Session expired, please login again', 'error');
+                    showAlert(t('sessionExpiredLogin'), 'error');
                     currentSession = null;
                     updateSessionUI();
                 }
             } catch (error) {
-                showAlert('Invalid session file', 'error');
+                showAlert(t('invalidSessionFile'), 'error');
             }
         }
         
@@ -2218,7 +2277,7 @@ function getHtmlContent(lang: string = 'en'): string {
             a.click();
             
             URL.revokeObjectURL(url);
-            showAlert('Session saved successfully', 'success');
+            showAlert(t('sessionSaved'), 'success');
         }
         
         // Update session UI
@@ -2240,18 +2299,18 @@ function getHtmlContent(lang: string = 'en'): string {
                         <div style="display: flex; align-items: center;">
                             <div class="card-icon">🔐</div>
                             <div style="margin-left: 1rem;">
-                                <h2 style="margin-bottom: 0.25rem;">Authenticated Session</h2>
+                                <h2 style="margin-bottom: 0.25rem;">${t.authenticatedSession}</h2>
                                 <div style="display: flex; gap: 1.5rem; font-size: 0.8125rem; color: var(--text-secondary); font-weight: 400;">
                                     <span style="display: flex; align-items: center; gap: 0.25rem;">
-                                        <span style="color: var(--text-muted); text-transform: uppercase; font-size: 0.6875rem; letter-spacing: 0.05em;">USER</span>
+                                        <span style="color: var(--text-muted); text-transform: uppercase; font-size: 0.6875rem; letter-spacing: 0.05em;">${t.user}</span>
                                         <span style="color: var(--text-secondary);">\${currentSession.username}</span>
                                     </span>
                                     <span style="display: flex; align-items: center; gap: 0.25rem;">
-                                        <span style="color: var(--text-muted); text-transform: uppercase; font-size: 0.6875rem; letter-spacing: 0.05em;">ID</span>
+                                        <span style="color: var(--text-muted); text-transform: uppercase; font-size: 0.6875rem; letter-spacing: 0.05em;">${t.id}</span>
                                         <span style="color: var(--text-secondary);">\${currentSession.userId}</span>
                                     </span>
                                     <span style="display: flex; align-items: center; gap: 0.25rem;">
-                                        <span style="color: var(--text-muted); text-transform: uppercase; font-size: 0.6875rem; letter-spacing: 0.05em;">SESSION</span>
+                                        <span style="color: var(--text-muted); text-transform: uppercase; font-size: 0.6875rem; letter-spacing: 0.05em;">${t.session}</span>
                                         <span style="color: var(--text-secondary);">\${savedAt}</span>
                                     </span>
                                 </div>
@@ -2260,11 +2319,11 @@ function getHtmlContent(lang: string = 'en'): string {
                         <div style="display: flex; gap: 0.5rem;">
                             \${!sessionLoadedFromFile ? \`
                                 <button id="saveSessionBtnTop" class="button-secondary" style="padding: 0.5rem 1rem; font-size: 0.875rem;" onclick="saveSession()">
-                                    💾 Save Session
+                                    💾 ${t.saveSession}
                                 </button>
                             \` : ''}
                             <button class="button-secondary" style="padding: 0.5rem 1rem; font-size: 0.875rem;" onclick="logout()">
-                                🔄 Change Account
+                                🔄 ${t.changeAccount}
                             </button>
                         </div>
                     </div>
@@ -2302,7 +2361,7 @@ function getHtmlContent(lang: string = 'en'): string {
             
             // Update server info
             const serverInfo = document.getElementById('currentServerInfo');
-            serverInfo.textContent = \`Loading devices from \${selectedServer.toUpperCase()} server...\`;
+            serverInfo.textContent = t('loadingDevicesFrom') + ' ' + selectedServer.toUpperCase() + ' ' + t('server');
             
             isLoadingDevices = true;
             btn.disabled = true;
@@ -2386,14 +2445,14 @@ function getHtmlContent(lang: string = 'en'): string {
                                             progressContainer.remove();
                                             await scanAllRegions(selectedServer);
                                         } else {
-                                            showAlert(\`Found \${deviceCount} device(s)\`, 'success');
-                                            serverInfo.textContent = \`Showing \${deviceCount} device(s) from \${selectedServer.toUpperCase()} server\`;
+                                            showAlert(t('foundDevicesCount') + ' ' + deviceCount + ' ' + t('deviceCount'), 'success');
+                                            serverInfo.textContent = t('showingDevicesFrom') + ' ' + selectedServer.toUpperCase() + ' ' + t('serverText') + ' ' + deviceCount + ' ' + t('devicesSuffix');
                                         }
                                         break;
                                         
                                     case 'error':
                                         progressContainer.remove();
-                                        showAlert(\`Error: \${data.message}\`, 'error');
+                                        showAlert(t('errorMessage') + ' ' + data.message, 'error');
                                         break;
                                 }
                             } catch (e) {
@@ -2404,13 +2463,13 @@ function getHtmlContent(lang: string = 'en'): string {
                 }
             } catch (error) {
                 progressContainer.remove();
-                showAlert(\`Error loading devices: \${error.message}\`, 'error');
-                serverInfo.textContent = \`Error loading from \${selectedServer.toUpperCase()} server\`;
+                showAlert(t('errorLoadingDevices') + ' ' + error.message, 'error');
+                serverInfo.textContent = t('errorLoadingFrom') + ' ' + selectedServer.toUpperCase() + ' ' + t('serverText');
             } finally {
                 isLoadingDevices = false;
                 btn.disabled = false;
                 serverSelector.disabled = false;
-                btn.innerHTML = '🔄 Refresh';
+                btn.innerHTML = '🔄 ' + t('refresh');
             }
         }
         
@@ -2456,8 +2515,8 @@ function getHtmlContent(lang: string = 'en'): string {
                         foundDevices = true;
                         serverSelector.value = region; // Update selector to found region
                         displayDevices(result.devices);
-                        showAlert(\`Found \${result.devices.length} device(s) in \${region.toUpperCase()} region!\`, 'success');
-                        serverInfo.textContent = \`Showing \${result.devices.length} device(s) from \${region.toUpperCase()} server\`;
+                        showAlert(t('foundDevicesInRegion') + ' ' + region.toUpperCase() + ' ' + t('inRegion') + ' ' + result.devices.length + ' ' + t('regionUpper'), 'success');
+                        serverInfo.textContent = t('showingDevicesFrom') + ' ' + region.toUpperCase() + ' ' + t('serverText') + ' ' + result.devices.length + ' ' + t('devicesSuffix');
                         break;
                     }
                 } catch (error) {
@@ -2467,7 +2526,7 @@ function getHtmlContent(lang: string = 'en'): string {
             
             if (!foundDevices) {
                 serverInfo.innerHTML = '<span style="color: var(--error);">No devices found in any region. Your devices might be offline or not yet registered.</span>';
-                showAlert('No devices found in any region', 'warning');
+                showAlert(t('noDevicesAnyRegion'), 'warning');
                 // Restore original region selection
                 serverSelector.value = currentRegion;
             }
@@ -2475,7 +2534,7 @@ function getHtmlContent(lang: string = 'en'): string {
             // Re-enable controls
             btn.disabled = false;
             serverSelector.disabled = false;
-            btn.innerHTML = '🔄 Refresh';
+            btn.innerHTML = '🔄 ' + t('refresh');
         }
         
         // Display single device (for streaming)
@@ -2523,38 +2582,38 @@ function getHtmlContent(lang: string = 'en'): string {
             }
             
             // Always show these fields
-            infoRows.push(createInfoRow('Model', device.model));
-            infoRows.push(createInfoRow('DID', device.did));
+            infoRows.push(createInfoRow(t('model'), device.model));
+            infoRows.push(createInfoRow(t('did'), device.did));
             
             // Token - special styling
             if (device.token) {
-                infoRows.push(createInfoRow('Token', device.token, true));
+                infoRows.push(createInfoRow(t('token'), device.token, true));
             }
             
             // Network info - only if available
             if (device.ip && device.ip !== 'undefined') {
-                infoRows.push(createInfoRow('IP', device.ip));
+                infoRows.push(createInfoRow(t('ip'), device.ip));
             }
             if (device.mac) {
-                infoRows.push(createInfoRow('MAC', device.mac));
+                infoRows.push(createInfoRow(t('mac'), device.mac));
             }
             
             // BLE Key - only if available
             if (device.extra?.ble_key) {
-                infoRows.push(createInfoRow('BLE Key', device.extra.ble_key, true));
+                infoRows.push(createInfoRow(t('bleKey'), device.extra.ble_key, true));
             }
             
             // WiFi info - only if available
             if (device.ssid) {
-                infoRows.push(createInfoRow('WiFi', device.ssid));
+                infoRows.push(createInfoRow(t('wifi'), device.ssid));
             }
             
             deviceEl.innerHTML = \`
                 <div class="device-header">
-                    <div class="device-name">\${device.name || 'Unknown Device'}</div>
+                    <div class="device-name">\${device.name || '${t.unknownDevice}'}</div>
                     <div class="device-status">
                         <span class="status-dot \${device.isOnline ? 'online' : ''}"></span>
-                        <span>\${device.isOnline ? 'Online' : 'Offline'}</span>
+                        <span>\${device.isOnline ? '${t.online}' : '${t.offline}'}</span>
                     </div>
                 </div>
                 <div class="device-info">
@@ -2582,7 +2641,7 @@ function getHtmlContent(lang: string = 'en'): string {
                 }, 1500);
             }).catch(err => {
                 // debug.error('Failed to copy:', err);
-                showAlert('Failed to copy to clipboard', 'error');
+                showAlert(t('failedToCopy'), 'error');
             });
         }
         
